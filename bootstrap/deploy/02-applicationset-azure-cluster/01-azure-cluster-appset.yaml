@@ -1,0 +1,26 @@
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: azure-cluster
+  namespace: openshift-gitops
+spec:
+  generators:
+  - clusters: {} 
+  template:
+    metadata:
+      name: azure-cluster-{{name}}
+    spec:
+      project: azure
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+      source:
+        repoURL: https://github.com/ignaciolago/acm-ocp-azure.git
+        targetRevision: main
+        path: resources/03-azure-cluster
+      destination:
+        server: https://kubernetes.default.svc
+

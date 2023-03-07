@@ -1,0 +1,141 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cluster01
+---
+apiVersion: hive.openshift.io/v1
+kind: ClusterDeployment
+metadata:
+  # Cluster name in this case is cluster01
+  name: 'cluster01'
+  # Cluster namespace in this case is cluster01
+  namespace: 'cluster01'
+  labels:
+    cloud: 'Azure'
+    region: 'westeurope'
+    vendor: OpenShift
+    cluster.open-cluster-management.io/clusterset: 'azure-clusters'
+spec:
+# base DNS to be used as base in the installation
+  baseDomain: jrh4l.azure.something.io
+  clusterName: 'cluster01'
+  controlPlaneConfig:
+    servingCertificates: {}
+  installAttemptsLimit: 1
+  installed: false
+  platform:
+    azure:
+      # resource group created for the DNS to be used as base in the installation
+      baseDomainResourceGroupName: openenv-jrh4l
+      credentialsSecretRef:
+        name: cluster01-azure-creds
+      region: westeurope
+      cloudName: AzurePublicCloud
+  provisioning:
+    installConfigSecretRef:
+      name: cluster01-install-config
+    sshPrivateKeySecretRef:
+      name: cluster01-ssh-private-key
+    imageSetRef:
+       #quay.io/openshift-release-dev/ocp-release:4.10.53-x86_64
+      name: img4.10.53-x86-64-appsub
+  pullSecretRef:
+    name: cluster01-pull-secret
+---
+apiVersion: cluster.open-cluster-management.io/v1
+kind: ManagedCluster
+metadata:
+  labels:
+    cloud: Azure
+    region: westeurope
+    name: 'cluster01'
+    vendor: OpenShift
+    cluster.open-cluster-management.io/clusterset: 'azure-clusters'
+  name: 'cluster01'
+spec:
+  hubAcceptsClient: true
+---
+apiVersion: hive.openshift.io/v1
+kind: MachinePool
+metadata:
+  name: cluster01-worker
+  namespace: 'cluster01'
+spec:
+  clusterDeploymentRef:
+    name: 'cluster01'
+  name: worker
+  platform:
+    azure:
+      osDisk:
+        diskSizeGB: 128
+      type: Standard_D2s_v3
+      zones:
+      - "1"
+      - "2"
+      - "3"
+  replicas: 3
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cluster01-pull-secret
+  namespace: 'cluster01'
+data:
+  # Base64 encoding of the pull secret
+  .dockerconfigjson: >-
+    pull_secret_in_base64
+type: kubernetes.io/dockerconfigjson
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cluster01-install-config
+  namespace: 'cluster01'
+type: Opaque
+data:
+  # Base64 encoding of install-config yaml
+  install-config.yaml: YXBpVmVyc2lvbjogdjENCm1ldGFkYXRhOg0KICBuYW1lOiAnY2x1c3RlcjAxJw0KIyBiYXNlIEROUyB0byBiZSB1c2VkIGFzIGJhc2UgaW4gdGhlIGluc3RhbGxhdGlvbg0KYmFzZURvbWFpbjoganJoNGwuYXp1cmUuc29tZXRoaW5nLmlvDQpjb250cm9sUGxhbmU6DQogIGFyY2hpdGVjdHVyZTogYW1kNjQNCiAgaHlwZXJ0aHJlYWRpbmc6IEVuYWJsZWQNCiAgbmFtZTogbWFzdGVyDQogIHJlcGxpY2FzOiAzDQogIHBsYXRmb3JtOg0KICAgIGF6dXJlOg0KICAgICAgb3NEaXNrOg0KICAgICAgICBkaXNrU2l6ZUdCOiAxMjgNCiAgICAgIHR5cGU6ICBTdGFuZGFyZF9ENHNfdjMNCmNvbXB1dGU6DQotIGh5cGVydGhyZWFkaW5nOiBFbmFibGVkDQogIGFyY2hpdGVjdHVyZTogYW1kNjQNCiAgbmFtZTogJ3dvcmtlcicNCiAgcmVwbGljYXM6IDMNCiAgcGxhdGZvcm06DQogICAgYXp1cmU6DQogICAgICB0eXBlOiAgU3RhbmRhcmRfRDJzX3YzDQogICAgICBvc0Rpc2s6DQogICAgICAgIGRpc2tTaXplR0I6IDEyOA0KICAgICAgem9uZXM6DQogICAgICAtICIxIg0KICAgICAgLSAiMiINCiAgICAgIC0gIjMiDQpuZXR3b3JraW5nOg0KICBuZXR3b3JrVHlwZTogT1ZOS3ViZXJuZXRlcw0KICBjbHVzdGVyTmV0d29yazoNCiAgLSBjaWRyOiAxMC4xMjguMC4wLzE0DQogICAgaG9zdFByZWZpeDogMjMNCiAgbWFjaGluZU5ldHdvcms6DQogIC0gY2lkcjogMTAuMC4wLjAvMTYNCiAgc2VydmljZU5ldHdvcms6DQogIC0gMTcyLjMwLjAuMC8xNg0KcGxhdGZvcm06DQogIGF6dXJlOg0KICAgICMgcmVzb3VyY2UgZ3JvdXAgY3JlYXRlZCBmb3IgdGhlIEROUyB0byBiZSB1c2VkIGFzIGJhc2UgaW4gdGhlIGluc3RhbGxhdGlvbg0KICAgIGJhc2VEb21haW5SZXNvdXJjZUdyb3VwTmFtZTogb3BlbmVudi1qcmg0bA0KICAgIGNsb3VkTmFtZTogQXp1cmVQdWJsaWNDbG91ZA0KICAgIHJlZ2lvbjogd2VzdGV1cm9wZQ0KcHVsbFNlY3JldDogIiIgIyBza2lwLCBoaXZlIHdpbGwgaW5qZWN0IGJhc2VkIG9uIGl0J3Mgc2VjcmV0cw0Kc3NoS2V5OiB8LQ0KICAgIHNzaC1yc2ENCiAgICBwdWJsaWNfa2V5X2hlcmUNCg==
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cluster01-ssh-private-key
+  namespace: 'cluster01'
+stringData:
+  ssh-privatekey: >-
+    private_ssh_key_in_base64
+type: Opaque
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: cluster01-azure-creds
+  namespace: 'cluster01'
+stringData:
+  osServicePrincipal.json: >-
+    azure_credentials_in_base64
+---
+apiVersion: agent.open-cluster-management.io/v1
+kind: KlusterletAddonConfig
+metadata:
+  name: 'cluster01'
+  namespace: 'cluster01'
+spec:
+  clusterName: 'cluster01'
+  clusterNamespace: 'cluster01'
+  clusterLabels:
+    cloud: Azure
+    vendor: OpenShift
+  applicationManager:
+    enabled: true
+  policyController:
+    enabled: true
+  searchCollector:
+    enabled: true
+  certPolicyController:
+    enabled: true
+  iamPolicyController:
+    enabled: true
+
